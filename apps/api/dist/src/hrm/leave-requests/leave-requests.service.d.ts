@@ -13,11 +13,11 @@ export declare class LeaveRequestsService {
         };
     } & {
         id: number;
-        employeeId: number;
         startDate: Date;
         endDate: Date;
         reason: string;
         status: string;
+        employeeId: number;
     })[]>;
     findOne(id: number): Promise<{
         employee: {
@@ -29,40 +29,40 @@ export declare class LeaveRequestsService {
         };
     } & {
         id: number;
-        employeeId: number;
         startDate: Date;
         endDate: Date;
         reason: string;
         status: string;
+        employeeId: number;
     }>;
     create(data: Omit<Prisma.LeaveRequestUncheckedCreateInput, 'startDate' | 'endDate'> & {
         startDate: string;
         endDate: string;
     }): Prisma.Prisma__LeaveRequestClient<{
         id: number;
-        employeeId: number;
         startDate: Date;
         endDate: Date;
         reason: string;
         status: string;
+        employeeId: number;
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
     update(id: number, data: Partial<Omit<Prisma.LeaveRequestUpdateInput, 'startDate' | 'endDate'> & {
         startDate: string;
         endDate: string;
     }>): Prisma.Prisma__LeaveRequestClient<{
         id: number;
-        employeeId: number;
         startDate: Date;
         endDate: Date;
         reason: string;
         status: string;
+        employeeId: number;
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
     remove(id: number): Prisma.Prisma__LeaveRequestClient<{
         id: number;
-        employeeId: number;
         startDate: Date;
         endDate: Date;
         reason: string;
         status: string;
+        employeeId: number;
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
 }

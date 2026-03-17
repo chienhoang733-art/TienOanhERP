@@ -1,9 +1,13 @@
-import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
-export declare class DepartmentsService {
-    private prisma;
-    constructor(prisma: PrismaService);
-    findAll(): Prisma.PrismaPromise<({
+import { DepartmentsService } from './departments.service';
+export declare class DepartmentsController {
+    private readonly departmentsService;
+    constructor(departmentsService: DepartmentsService);
+    create(createData: any): import(".prisma/client").Prisma.Prisma__DepartmentClient<{
+        name: string;
+        managerId: number | null;
+        id: number;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs>;
+    findAll(): import(".prisma/client").Prisma.PrismaPromise<({
         employees: {
             id: number;
             fullName: string;
@@ -12,11 +16,11 @@ export declare class DepartmentsService {
             departmentId: number;
         }[];
     } & {
-        id: number;
         name: string;
         managerId: number | null;
+        id: number;
     })[]>;
-    findOne(id: number): Promise<{
+    findOne(id: string): Promise<{
         employees: {
             id: number;
             fullName: string;
@@ -25,23 +29,18 @@ export declare class DepartmentsService {
             departmentId: number;
         }[];
     } & {
-        id: number;
         name: string;
         managerId: number | null;
+        id: number;
     }>;
-    create(data: Prisma.DepartmentCreateInput): Prisma.Prisma__DepartmentClient<{
-        id: number;
+    update(id: string, updateData: any): import(".prisma/client").Prisma.Prisma__DepartmentClient<{
         name: string;
         managerId: number | null;
+        id: number;
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
-    update(id: number, data: Prisma.DepartmentUpdateInput): Prisma.Prisma__DepartmentClient<{
-        id: number;
+    remove(id: string): import(".prisma/client").Prisma.Prisma__DepartmentClient<{
         name: string;
         managerId: number | null;
-    }, never, import("@prisma/client/runtime/library").DefaultArgs>;
-    remove(id: number): Prisma.Prisma__DepartmentClient<{
         id: number;
-        name: string;
-        managerId: number | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
 }

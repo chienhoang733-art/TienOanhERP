@@ -11,17 +11,17 @@ export declare class EmployeesController {
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
     findAll(): import(".prisma/client").Prisma.PrismaPromise<({
         department: {
-            id: number;
             name: string;
             managerId: number | null;
+            id: number;
         };
         leaveRequests: {
             id: number;
-            employeeId: number;
             startDate: Date;
             endDate: Date;
             reason: string;
             status: string;
+            employeeId: number;
         }[];
     } & {
         id: number;
@@ -32,17 +32,17 @@ export declare class EmployeesController {
     })[]>;
     findOne(id: string): Promise<{
         department: {
-            id: number;
             name: string;
             managerId: number | null;
+            id: number;
         };
         leaveRequests: {
             id: number;
-            employeeId: number;
             startDate: Date;
             endDate: Date;
             reason: string;
             status: string;
+            employeeId: number;
         }[];
     } & {
         id: number;

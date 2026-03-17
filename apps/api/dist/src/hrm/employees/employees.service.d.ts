@@ -5,17 +5,17 @@ export declare class EmployeesService {
     constructor(prisma: PrismaService);
     findAll(): Prisma.PrismaPromise<({
         department: {
-            id: number;
             name: string;
             managerId: number | null;
+            id: number;
         };
         leaveRequests: {
             id: number;
-            employeeId: number;
             startDate: Date;
             endDate: Date;
             reason: string;
             status: string;
+            employeeId: number;
         }[];
     } & {
         id: number;
@@ -26,17 +26,17 @@ export declare class EmployeesService {
     })[]>;
     findOne(id: number): Promise<{
         department: {
-            id: number;
             name: string;
             managerId: number | null;
+            id: number;
         };
         leaveRequests: {
             id: number;
-            employeeId: number;
             startDate: Date;
             endDate: Date;
             reason: string;
             status: string;
+            employeeId: number;
         }[];
     } & {
         id: number;
