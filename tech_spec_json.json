@@ -1,0 +1,815 @@
+{
+  "project": {
+    "name": "Hệ thống quản lý Tiến Oanh Co.Ltd",
+    "codename": "ToanERP",
+    "version": "1.0.0",
+    "created_at": "2025-03",
+    "owner": {
+      "company": "Công ty TNHH Du Lịch Vận Tải Tiến Oanh",
+      "director": "Hoàng Khánh Chiến",
+      "industry": "Vận chuyển hành khách liên tỉnh, vận tải hàng hóa, cho thuê xe hợp đồng",
+      "main_routes": ["HCM–Đà Lạt", "HCM–Buôn Ma Thuột"],
+      "headcount": 170,
+      "fleet_size": 59
+    }
+  },
+
+  "design_principles": {
+    "composable": "Mọi thứ đều có thể tháo ra, thay vào, mở rộng mà không làm sập phần còn lại",
+    "connected": "Mọi module chia sẻ cùng một lớp dữ liệu, không có dữ liệu bị cô lập",
+    "ai_ready": "Kiến trúc thiết kế từ đầu để AI có thể đọc, phân tích và hành động trên toàn hệ thống",
+    "no_hardcode": "Danh mục, trường thông tin, quy trình duyệt đều cấu hình qua UI, không sửa code",
+    "extensible": "Mọi module mới phải implement ToanERPModule interface, đảm bảo tích hợp liền mạch"
+  },
+
+  "architecture": {
+    "pattern": "Modular Monolith → Microservices",
+    "phases": {
+      "phase_1_2": "Modular Monolith – module tách biệt trong cùng một deployment, giao tiếp qua Internal Event Bus",
+      "phase_3_plus": "Tách dần thành Microservices theo từng module khi cần scale"
+    },
+    "communication": {
+      "internal": "Event Bus (publish/subscribe pattern)",
+      "external": ["REST API", "GraphQL", "Webhook"]
+    },
+    "database_strategy": "Một PostgreSQL instance dùng chung toàn hệ thống. Không tách DB theo module. Phân tách logic bằng namespace trong code.",
+    "foreign_key_strategy": "Không dùng hard FK cross-module trong database. Validate ở tầng application để dễ tách Microservices sau này."
+  },
+
+  "tech_stack": {
+    "backend": {
+      "language": "TypeScript",
+      "runtime": "Node.js",
+      "framework": "NestJS",
+      "alternative": "FastAPI (Python) nếu ưu tiên AI/ML tích hợp sâu"
+    },
+    "frontend": {
+      "framework": "Next.js 14+ (React, App Router)",
+      "ui_library": "shadcn/ui + Tailwind CSS",
+      "state_management": {
+        "client": "Zustand",
+        "server": "React Query (TanStack Query)"
+      },
+      "mobile": "PWA (giai đoạn 1), React Native (nếu cần native sau)"
+    },
+    "databases": {
+      "primary": "PostgreSQL 16",
+      "cache_queue": "Redis 7 + BullMQ",
+      "search": "Elasticsearch 8",
+      "file_storage": "MinIO (self-hosted) hoặc AWS S3"
+    },
+    "infrastructure": {
+      "container": "Docker + Kubernetes",
+      "cloud": "AWS hoặc GCP (region Việt Nam)",
+      "ci_cd": "GitHub Actions",
+      "monitoring": ["Grafana", "Prometheus", "Sentry"]
+    }
+  },
+
+  "project_structure": {
+    "type": "Monorepo",
+    "layout": {
+      "apps": {
+        "api": "NestJS backend",
+        "web": "Next.js frontend"
+      },
+      "packages": {
+        "database": "Prisma schema + migrations",
+        "shared_types": "TypeScript types dùng chung toàn hệ thống",
+        "event_bus": "Internal event system",
+        "ai_context": "AI data pipeline và context providers"
+      }
+    }
+  },
+
+  "core_framework": {
+
+    "auth": {
+      "strategy": "JWT (Access Token 15 phút + Refresh Token 30 ngày)",
+      "two_factor": "TOTP (Google Authenticator) – bắt buộc cho L1, L2, Kế toán",
+      "oauth": "Google OAuth2 (tùy chọn)",
+      "access_token_payload": {
+        "sub": "user_uuid",
+        "org_id": "org_uuid",
+        "employee_id": "emp_uuid",
+        "role": "manager",
+        "role_level": 2,
+        "permissions": ["hrm:read", "hrm:write", "vehicle:read"],
+        "iat": "unix_timestamp",
+        "exp": "unix_timestamp"
+      },
+      "endpoints": [
+        "POST /auth/login",
+        "POST /auth/login/2fa",
+        "POST /auth/refresh",
+        "POST /auth/logout",
+        "POST /auth/logout/all",
+        "GET  /auth/me",
+        "POST /auth/change-password",
+        "POST /auth/forgot-password",
+        "POST /auth/reset-password"
+      ]
+    },
+
+    "rbac": {
+      "model": "RBAC + ABAC",
+      "description": "RBAC cho quyền module, ABAC cho quyền dữ liệu cụ thể (chỉ thấy xe tuyến mình quản lý)",
+      "permission_format": "module:action[:resource]",
+      "permission_examples": [
+        "hrm:read",
+        "hrm:write",
+        "hrm:employee:read",
+        "hrm:salary:read",
+        "hrm:salary:write",
+        "accounting:read",
+        "accounting:write",
+        "accounting:approve",
+        "vehicle:read",
+        "vehicle:write",
+        "vehicle:document:write"
+      ],
+      "roles": [
+        { "slug": "director",   "name": "Giám Đốc",        "level": 1, "permissions": ["*"] },
+        { "slug": "manager",    "name": "Trưởng Phòng",     "level": 2, "permissions": ["hrm:read","hrm:write","attendance:read","attendance:write","accounting:read"] },
+        { "slug": "staff",      "name": "Nhân Viên",        "level": 3, "permissions": ["hrm:employee:self","attendance:checkin","attendance:leave_request"] },
+        { "slug": "driver",     "name": "Tài Xế",           "level": 4, "permissions": ["attendance:checkin","attendance:trip_view","vehicle:self_view"] },
+        { "slug": "accountant", "name": "Kế Toán",          "level": 5, "permissions": ["accounting:read","accounting:write","accounting:approve","hrm:salary:read"] },
+        { "slug": "auditor",    "name": "Kiểm Toán",        "level": 6, "permissions": ["*:read"] }
+      ]
+    },
+
+    "shared_tables": [
+      "organizations",
+      "roles",
+      "users",
+      "refresh_tokens",
+      "audit_logs",
+      "event_log",
+      "custom_field_definitions",
+      "custom_field_values",
+      "notifications",
+      "file_registry"
+    ],
+
+    "audit_log": {
+      "description": "Ghi lại toàn bộ thao tác ghi trong hệ thống. Không bao giờ xóa bảng này.",
+      "fields": ["id","org_id","actor_id","actor_name","module","entity_type","entity_id","event_type","payload_before","payload_after","diff","ip_address","user_agent","occurred_at"],
+      "indexes": ["(org_id, module, occurred_at DESC)", "(entity_type, entity_id, occurred_at DESC)", "(actor_id, occurred_at DESC)"],
+      "event_types": ["created","updated","deleted","approved","rejected","exported","signed","revoked"]
+    },
+
+    "event_log": {
+      "description": "Business events cho async processing và AI training. Khác audit_log: dành cho domain events.",
+      "fields": ["id","org_id","event_type","payload","source_module","correlation_id","processed_by","is_processed","created_at"],
+      "indexes": ["(event_type, is_processed, created_at) WHERE is_processed=FALSE", "(org_id, event_type, created_at DESC)"],
+      "registered_events": [
+        { "event": "employee.hired",           "source": "hrm",        "consumers": ["payroll","knowledge","notification","user_provisioning"] },
+        { "event": "employee.terminated",      "source": "hrm",        "consumers": ["payroll","user_deactivation","notification"] },
+        { "event": "employee.position_changed","source": "hrm",        "consumers": ["payroll","attendance"] },
+        { "event": "attendance.checked_in",    "source": "attendance", "consumers": ["notification"] },
+        { "event": "shift.handover_completed", "source": "attendance", "consumers": ["cskh","notification"] },
+        { "event": "trip.assigned",            "source": "dispatch",   "consumers": ["attendance","notification"] },
+        { "event": "trip.completed",           "source": "dispatch",   "consumers": ["attendance","accounting","vehicle_odometer","ai_pipeline"] },
+        { "event": "trip.cancelled",           "source": "dispatch",   "consumers": ["accounting","notification"] },
+        { "event": "vehicle.maintenance_due",  "source": "vehicle",    "consumers": ["notification","dispatch_warning"] },
+        { "event": "vehicle.document_expired", "source": "vehicle",    "consumers": ["notification","dispatch_warning"] },
+        { "event": "invoice.paid",             "source": "accounting", "consumers": ["accounting_receipt","notification"] },
+        { "event": "loan.payment_due",         "source": "accounting", "consumers": ["notification"] },
+        { "event": "ticket_order.created",     "source": "sales",      "consumers": ["accounting","cskh"] },
+        { "event": "ticket_order.refund_requested", "source": "sales", "consumers": ["accounting","cskh"] },
+        { "event": "freight.status_changed",   "source": "freight",    "consumers": ["notification_customer","cskh"] },
+        { "event": "stock.below_minimum",      "source": "inventory",  "consumers": ["notification","purchase_request"] }
+      ]
+    },
+
+    "custom_fields": {
+      "description": "Áp dụng cho tất cả entity. Thêm trường mới không cần sửa code hay migration.",
+      "supported_entities": ["employee","vehicle","ticket_order","freight_order","charter_contract","customer","agent"],
+      "field_types": ["text","textarea","number","currency","date","datetime","dropdown","checkbox","file","link"],
+      "config_per_field": ["is_required","is_visible_in_list","is_searchable","visible_to_roles","editable_by_roles","section_name","display_order","validation_rules","default_value"]
+    },
+
+    "dynamic_schema_tables": {
+      "custom_field_definitions": {
+        "purpose": "Định nghĩa trường tùy chỉnh theo entity_type",
+        "unique_constraint": "(org_id, entity_type, field_key)"
+      },
+      "custom_field_values": {
+        "purpose": "Lưu giá trị JSONB theo (entity_type, entity_id, field_key)",
+        "index": "(entity_type, entity_id)"
+      }
+    },
+
+    "workflow_engine": {
+      "description": "Quy trình phê duyệt cấu hình qua UI (kéo thả), không hard-code",
+      "features": ["Rẽ nhánh theo điều kiện (số tiền, loại, phòng ban)","Timeout tự động leo thang","SLA per step","Áp dụng riêng từng loại nghiệp vụ"]
+    },
+
+    "ai_layer": {
+      "interface": "ModuleContextProvider",
+      "required_methods": ["getSummary(orgId, timeRange)","getAnomalies(orgId)","getMetrics(orgId)","getEntityContext(entityId)"],
+      "phase_1": {
+        "approach": "LLM API (OpenAI / Anthropic / Gemini)",
+        "features": [
+          "Trợ lý AI nội bộ: hỏi tiếng Việt tự nhiên → query database → trả lời có số liệu",
+          "Tự động điền văn bản HCNS từ dữ liệu nhân sự",
+          "Phân loại ticket CSKH tự động, gợi ý câu trả lời",
+          "Migrate dữ liệu cũ: AI gợi ý phân loại hạng mục từ text tự do"
+        ]
+      },
+      "phase_2": {
+        "approach": "Train model riêng sau 6–12 tháng có đủ data",
+        "models": [
+          { "name": "Dự báo lấp đầy",   "input": "Lịch sử vé, ngày lễ, thời tiết",     "output": "Tỷ lệ lấp đầy dự kiến/chuyến" },
+          { "name": "Dự báo bảo dưỡng", "input": "Km, tuổi xe, lịch sử hỏng hóc",      "output": "Xác suất hỏng hóc từng hạng mục" },
+          { "name": "Dự báo dòng tiền", "input": "Lịch sử thu chi, công nợ, hợp đồng", "output": "Số dư dự báo 30/60/90 ngày" },
+          { "name": "Phát hiện bất thường", "input": "Mọi giao dịch tài chính",         "output": "Giao dịch nghi ngờ sai sót" },
+          { "name": "Tối ưu điều xe",   "input": "Đơn hàng, xe sẵn có, tài xế",        "output": "Lịch điều xe tối ưu chi phí" }
+        ]
+      },
+      "ai_principle": "AI chỉ gợi ý – Con người phê duyệt – Hệ thống thực thi"
+    },
+
+    "security": {
+      "data_integrity": {
+        "soft_delete": "Tất cả entity có deleted_at TIMESTAMPTZ, không xóa vật lý",
+        "immutable_after_approve": "Chứng từ tài chính và văn bản pháp lý không sửa sau khi duyệt",
+        "financial_data_type": "DECIMAL(15,2) cho tiền, không dùng FLOAT",
+        "timestamp_type": "TIMESTAMPTZ cho mọi datetime field (có timezone)"
+      },
+      "backup": {
+        "every_6h": "Giữ 7 ngày gần nhất",
+        "daily": "Giữ 30 ngày gần nhất",
+        "weekly": "Giữ 12 tháng gần nhất",
+        "rto": "< 4 giờ",
+        "rpo": "< 6 giờ mất dữ liệu tối đa"
+      }
+    },
+
+    "external_integrations": [
+      { "name": "Hệ thống bán vé",        "method": "REST + Webhook",      "data": "Vé, chuyến, doanh thu" },
+      { "name": "GPS thiết bị",            "method": "REST pull định kỳ",   "data": "Tọa độ, tốc độ, km" },
+      { "name": "Napas 247",               "method": "REST",                "data": "Xác minh tên chủ tài khoản ngân hàng" },
+      { "name": "API Tổng cục Thuế",       "method": "REST",                "data": "Tra cứu MST: tên DN, địa chỉ, trạng thái" },
+      { "name": "Zalo OA",                 "method": "Webhook push",        "data": "Thông báo, nhắc nhở" },
+      { "name": "Ngân hàng VietQR",        "method": "REST",                "data": "Xác nhận thanh toán" },
+      { "name": "Hóa đơn điện tử VNPT/MISA", "method": "REST",             "data": "Xuất hóa đơn tự động" },
+      { "name": "Sở GTVT",                 "method": "File export CSV/Excel","data": "Báo cáo định kỳ" }
+    ]
+  },
+
+  "modules": {
+
+    "hrm": {
+      "name": "Hành Chính Nhân Sự",
+      "status": "phase_1",
+      "tables": [
+        "departments",
+        "employees",
+        "driver_details",
+        "employee_history",
+        "document_templates",
+        "documents_issued",
+        "labor_contracts",
+        "leave_policies",
+        "leave_balances",
+        "leave_requests"
+      ],
+      "key_entities": {
+        "employee": {
+          "primary_key": "id (UUID)",
+          "unique_keys": ["(org_id, emp_code)"],
+          "notable_fields": {
+            "search_vector": "TSVECTOR – full-text search (họ tên, SĐT, mã NV, chức vụ)",
+            "status": ["active","on_leave","terminated"],
+            "employment_type": ["full_time","part_time","probation"]
+          },
+          "ai_note": "Có search_vector cho AI semantic search nhân viên"
+        },
+        "driver_details": {
+          "description": "Bảng extend riêng cho tài xế: bằng lái, khám sức khỏe, kinh nghiệm",
+          "relation": "ONE-TO-ONE với employees"
+        },
+        "employee_history": {
+          "description": "Append-only timeline. Không update, chỉ insert khi có thay đổi",
+          "event_types": ["position_change","salary_change","department_transfer","status_change"]
+        }
+      },
+      "document_system": {
+        "template_variables": "{{ho_ten}}, {{chuc_danh}}, {{muc_luong}}, {{ngay_bat_dau}}... – tự động điền từ hồ sơ NV",
+        "template_types": ["labor_contract","decision","authorization","regulation","notice","minutes","confirmation"],
+        "doc_numbering": "QĐ-2025-001, HĐLĐ-2025-045 – tự động tăng",
+        "batch_generate": true,
+        "immutable_after_sign": true
+      },
+      "leave_management": {
+        "leave_types": ["annual","sick","unpaid","maternity","compensatory"],
+        "balance_formula": "allocated + carried_over - used (GENERATED ALWAYS AS – tính tự động trong DB)"
+      },
+      "published_events": ["employee.hired","employee.terminated","employee.position_changed"],
+      "subscribed_events": [],
+      "api_endpoints": [
+        "GET    /hrm/departments",
+        "POST   /hrm/departments",
+        "PATCH  /hrm/departments/:id",
+        "GET    /hrm/employees",
+        "POST   /hrm/employees",
+        "GET    /hrm/employees/:id",
+        "PATCH  /hrm/employees/:id",
+        "GET    /hrm/employees/:id/history",
+        "GET    /hrm/employees/:id/documents",
+        "GET    /hrm/employees/:id/contracts",
+        "GET    /hrm/employees/:id/leave-balance",
+        "POST   /hrm/employees/:id/terminate",
+        "GET    /hrm/employees/:id/driver-details",
+        "PUT    /hrm/employees/:id/driver-details",
+        "GET    /hrm/document-templates",
+        "POST   /hrm/document-templates",
+        "GET    /hrm/documents",
+        "POST   /hrm/documents/generate",
+        "POST   /hrm/documents/batch-generate",
+        "PATCH  /hrm/documents/:id/sign",
+        "GET    /hrm/leave-requests",
+        "POST   /hrm/leave-requests",
+        "PATCH  /hrm/leave-requests/:id/approve",
+        "PATCH  /hrm/leave-requests/:id/reject",
+        "GET    /hrm/custom-fields",
+        "POST   /hrm/custom-fields",
+        "PUT    /hrm/employees/:id/custom-fields"
+      ]
+    },
+
+    "attendance": {
+      "name": "Chấm Công & Lương",
+      "status": "phase_1",
+      "tables": [
+        "shift_definitions",
+        "shift_assignments",
+        "shift_handovers",
+        "attendance",
+        "payroll_periods",
+        "payroll_records",
+        "advance_salary"
+      ],
+      "shift_system": {
+        "departments": ["CSKH","Tổng đài hàng hóa","Văn phòng","Đội tài xế"],
+        "default_shifts": [
+          { "code": "CA_SANG",    "time": "06:00–14:00", "overnight": false },
+          { "code": "CA_CHIEU",   "time": "14:00–22:00", "overnight": false },
+          { "code": "CA_TOI",     "time": "22:00–06:00", "overnight": true  },
+          { "code": "HANH_CHINH", "time": "08:00–17:00", "overnight": false }
+        ],
+        "handover": {
+          "fields": ["open_tickets_count","pending_refunds_count","pending_items (JSONB extensible)"],
+          "statuses": ["pending","acknowledged","completed"]
+        }
+      },
+      "attendance_sources": {
+        "office": "GPS check-in hoặc QR tại văn phòng",
+        "driver": "Tự động tạo từ TRIP_CREW khi chuyến hoàn thành (trip_auto)",
+        "manual": "Điều chỉnh thủ công bởi L2 trở lên"
+      },
+      "attendance_statuses": ["present","absent","late","half_day","on_leave","holiday"],
+      "payroll": {
+        "period_statuses": ["open","calculating","reviewing","approved","paid"],
+        "driver_formula": {
+          "basic_earned": "basic_daily_rate × work_days",
+          "trip_bonus": "trips_completed × bonus_per_trip × role_factor",
+          "role_factors": { "driver_primary": 1.0, "driver_secondary": 0.7, "assistant": 0.5 },
+          "allowances": ["night_shift","long_haul","overtime"],
+          "deductions": ["social_insurance_8pct","health_insurance_1_5pct","unemployment_1pct","personal_income_tax","advance_deduction","penalty"]
+        },
+        "calculation_detail_stored": "JSONB – lưu toàn bộ công thức tính để audit và giải thích cho NV"
+      },
+      "cross_module_deps": {
+        "trip_crew_id": "FK lỏng đến bảng trip_crew (module Dispatch) – validate ở application layer",
+        "description": "Khi trip.completed event → tự động tạo attendance cho tất cả TRIP_CREW members"
+      },
+      "published_events": ["attendance.checked_in","attendance.shift_started","shift.handover_completed"],
+      "subscribed_events": ["trip.completed","trip.assigned","employee.position_changed"],
+      "api_endpoints": [
+        "GET    /attendance/shifts",
+        "POST   /attendance/shifts",
+        "GET    /attendance/shifts/schedule",
+        "GET    /attendance/assignments",
+        "POST   /attendance/assignments",
+        "POST   /attendance/assignments/bulk",
+        "POST   /attendance/handovers",
+        "PATCH  /attendance/handovers/:id/acknowledge",
+        "GET    /attendance/handovers/current",
+        "POST   /attendance/checkin",
+        "POST   /attendance/checkout",
+        "POST   /attendance/checkin/trip",
+        "GET    /attendance/records",
+        "GET    /attendance/records/summary",
+        "PATCH  /attendance/records/:id",
+        "POST   /attendance/records/:id/approve",
+        "POST   /payroll/calculate/:period",
+        "GET    /payroll/:period",
+        "GET    /payroll/:period/employee/:id",
+        "POST   /payroll/:period/approve",
+        "POST   /payroll/:period/export",
+        "POST   /payroll/advances",
+        "PATCH  /payroll/advances/:id/approve",
+        "PATCH  /payroll/advances/:id/reject"
+      ]
+    },
+
+    "accounting": {
+      "name": "Kế Toán Nội Bộ",
+      "status": "phase_1",
+      "scope": {
+        "in_scope": ["Thu/chi thực tế","Dòng tiền","Chứng từ nội bộ","Hợp đồng vay","Xuất dữ liệu cho kế toán thuế bên ngoài"],
+        "out_of_scope": ["Bút toán kép","Báo cáo tài chính VAS","Khai báo thuế"]
+      },
+      "tables": [
+        "cash_accounts",
+        "expense_categories",
+        "receipt_vouchers",
+        "payment_vouchers",
+        "invoice_inbound",
+        "invoice_outbound",
+        "loan_contracts",
+        "loan_schedules"
+      ],
+      "payment_tiers": {
+        "tier_1_auto": { "max_amount": 500000,   "description": "Chi ngay, upload HĐ, tự động duyệt, KT xem cuối ngày" },
+        "tier_2_fast": { "max_amount": 5000000,  "description": "Thông báo ngay, duyệt điện thoại, SLA 15–30 phút" },
+        "tier_3_standard": {                      "description": "Quy trình đa cấp qua Workflow Engine" }
+      },
+      "expense_category": {
+        "structure": "2 tầng cha-con",
+        "notable": "Hạng mục 'Phát sinh chưa phân loại' – NV dùng khi không biết chọn gì, KT xử lý có chủ đích"
+      },
+      "invoice_inbound": {
+        "inbox_email": "hoadon@tienoanh.vn",
+        "sources": ["NV chụp ảnh app","NCC gửi email inbox","Upload thủ công scan"],
+        "lifecycle": ["received","pending","checking","reconciling","posted","adjustment_requested"],
+        "three_way_match": {
+          "A": "Phiếu chi đã duyệt (giá thỏa thuận)",
+          "B": "Hóa đơn NCC xuất",
+          "C": "Tiền thực tế đã chi",
+          "rule": "A=B=C → tự động hạch toán. Lệch → cảnh báo, chưa hạch toán"
+        }
+      },
+      "invoice_outbound": {
+        "customer_groups": ["Khách lẻ không lấy HĐ (lô cuối ngày)","Khách yêu cầu sau mua (self-service link)","Khách DN hợp đồng (tự động khi thanh toán)"],
+        "mst_lookup": {
+          "api": "tracuunnt.gdt.gov.vn (Tổng cục Thuế)",
+          "returns": ["ten_dn","dia_chi","trang_thai","nguoi_dai_dien"],
+          "warnings": ["MST không tồn tại","DN đã giải thể","MST bị khóa"]
+        },
+        "two_step_confirm": "Gửi xác nhận cho khách trước khi xuất – tránh xuất sai phải hủy (giới hạn quota hủy)"
+      },
+      "refund_flow": {
+        "bank_verification": "API Napas 247 – xác minh tên chủ tài khoản trước khi chuyển",
+        "sla": "Cảnh báo khi quá X giờ chưa xử lý",
+        "no_zalo": "Toàn bộ quy trình trong hệ thống, không qua nhóm Zalo"
+      },
+      "loan_management": {
+        "interest_methods": ["declining_balance","flat_rate","bullet","custom_per_period"],
+        "auto_schedule": "Hệ thống tự tạo toàn bộ lịch trả sau khi nhập hợp đồng",
+        "alert_levels": [
+          { "days_before": 15, "level": "yellow", "channels": ["app"] },
+          { "days_before": 7,  "level": "orange", "channels": ["app","email"] },
+          { "days_before": 3,  "level": "red",    "channels": ["app","email","zalo"] },
+          { "days_before": 0,  "level": "black",  "channels": ["app","email","zalo","escalation"] }
+        ],
+        "cash_flow_integration": "Lịch trả nợ 12 tháng tới tự động đưa vào dự báo dòng tiền"
+      },
+      "published_events": ["invoice.paid","loan.payment_due","payment_voucher.approved"],
+      "subscribed_events": ["ticket_order.created","freight_order.completed","trip.completed","refund_request.created","maintenance_record.completed","stock_transaction.created"]
+    },
+
+    "vehicle": {
+      "name": "Quản Lý Phương Tiện",
+      "status": "phase_2",
+      "tables": [
+        "vehicles",
+        "vehicle_ownership_history",
+        "vehicle_documents",
+        "vehicle_document_history",
+        "maintenance_standards",
+        "maintenance_records",
+        "gps_logs"
+      ],
+      "identity": {
+        "primary_key": "chassis_no + engine_no (số khung + số máy)",
+        "secondary_key": "plate_no (biển số – có thể thay đổi)",
+        "plate_transfer_rule": "Khi biển số cũ gán cho xe mới: tạo hồ sơ xe mới hoàn toàn, ghi sự kiện chuyển biển, xe cũ → trạng thái Đã thanh lý"
+      },
+      "field_system": {
+        "system_fields": ["chassis_no","engine_no","plate_no","status","vehicle_type","route_assigned"],
+        "default_fields": ["brand","model","year_manufacture","year_expiry","seat_capacity","fuel_capacity","fuel_rate_per_km","odometer_current","owner_name","purchase_price","purchase_date","purchase_place","seller_name","sale_price","sale_date","buyer_name"],
+        "custom_fields": "Dùng custom_field_definitions – thêm tùy ý không cần code"
+      },
+      "trip_crew": {
+        "roles": ["driver_primary","driver_secondary","assistant"],
+        "role_factors_for_payroll": { "driver_primary": 1.0, "driver_secondary": 0.7, "assistant": 0.5 },
+        "combinations": ["1 tài","1 tài + 1 phụ","2 tài","2 tài + 1 phụ"]
+      },
+      "legal_documents": {
+        "types": ["vehicle_registration","inspection","compulsory_insurance","hull_insurance","route_badge","charter_badge","business_license","technical_safety_cert"],
+        "upload_versioning": "File cũ → lịch sử, không xóa. Bắt buộc điền ngày hết hạn mới khi upload",
+        "alert_statuses": ["green","yellow","orange","red"],
+        "dispatch_warning": "Xe có tài liệu đỏ → cảnh báo khi phân công, buộc xác nhận"
+      },
+      "maintenance": {
+        "standard_dimensions": ["interval_km","interval_days"],
+        "rule": "Điều kiện nào đến trước thì thực hiện",
+        "alert_levels": {
+          "yellow": "Còn 500km hoặc 2 tuần",
+          "orange": "Đúng ngưỡng",
+          "red": "Quá ngưỡng",
+          "purple": "Lệch > 20% định ngạch (quá sớm hoặc quá trễ)"
+        },
+        "cost_push": "Chi phí bảo dưỡng tự động tạo payment_voucher trong Kế toán nội bộ"
+      },
+      "gtvt_reports": {
+        "report_types": ["periodic_transport","gps_tracking","accident","maintenance_history","fleet_list","driver_list"],
+        "gps_data": ["actual_vs_planned_route","speed_violations","continuous_driving_time","abnormal_stops","actual_km_vs_declared"],
+        "submission_tracking": ["schedule","reminder","status","filed_file_url","confirmation_reference"]
+      },
+      "published_events": ["vehicle.maintenance_due","vehicle.document_expired","vehicle.odometer_updated"],
+      "subscribed_events": ["trip.completed"]
+    },
+
+    "business": {
+      "name": "Kinh Doanh & CSKH",
+      "status": "phase_2",
+      "tables": [
+        "routes",
+        "trips",
+        "trip_crews",
+        "customers",
+        "agents",
+        "agent_commissions",
+        "agent_debts",
+        "ticket_orders",
+        "refund_requests",
+        "freight_orders",
+        "freight_status_logs",
+        "charter_contracts",
+        "charter_trips",
+        "cskh_tickets"
+      ],
+      "agent_management": {
+        "commission": "Tự động tạo AGENT_COMMISSION khi đơn hàng có agent_id",
+        "debt_tracking": "AGENT_DEBT tổng hợp: tổng bán, tổng hoa hồng, đã TT, còn lại",
+        "payment": "Trả hoa hồng → tự tạo payment_voucher trong Kế toán"
+      },
+      "freight_tracking": {
+        "statuses": ["received","picked_up","in_transit","arrived","delivered"],
+        "status_log": "Mỗi cập nhật lưu tọa độ GPS → bằng chứng tranh chấp"
+      },
+      "cskh": {
+        "ticket_types": ["inquiry","booking","complaint","refund_exchange","quality_feedback"],
+        "channels": ["phone","zalo","facebook","in_person"],
+        "sla": "Cảnh báo khi ticket chưa xử lý quá X giờ",
+        "shift_linked": "Mỗi ticket gắn với shift_assignment_id – biết ai đang trực"
+      },
+      "revenue_by_staff": "Mỗi giao dịch gắn created_by → báo cáo doanh thu theo nhân viên → KPI, thưởng",
+      "ticket_sync": {
+        "method": "Import Excel/CSV từ hệ thống bán vé",
+        "column_mapping": "Cấu hình một lần",
+        "reconciliation": ["Doanh thu file vs phiếu thu KT","Số chuyến file vs lịch điều xe"],
+        "statuses": ["unreconciled","matched","discrepancy_pending","resolved"]
+      },
+      "published_events": ["ticket_order.created","ticket_order.refund_requested","freight.status_changed","charter_contract.signed"],
+      "subscribed_events": ["trip.completed","trip.cancelled"]
+    },
+
+    "inventory": {
+      "name": "Quản Lý Kho",
+      "status": "phase_2",
+      "tables": [
+        "warehouses",
+        "inventory_items",
+        "inventory_stocks",
+        "stock_transactions",
+        "stock_transfers"
+      ],
+      "multi_warehouse": {
+        "description": "Mỗi bến/depot có kho riêng",
+        "stock_per_warehouse": "INVENTORY_STOCK tách tồn kho theo từng kho, cùng mặt hàng có thể tồn ở nhiều kho"
+      },
+      "stock_transfer": "Điều chuyển giữa kho: from_warehouse → to_warehouse + trạng thái",
+      "cost_integration": "Chi phí vật tư tự động tạo payment_voucher trong Kế toán",
+      "published_events": ["stock.below_minimum","stock.transfer_completed"],
+      "subscribed_events": ["maintenance_record.completed"]
+    },
+
+    "knowledge": {
+      "name": "Kiến Thức Nội Bộ",
+      "status": "phase_2",
+      "tables": ["knowledge_articles","knowledge_completions"],
+      "features": ["Full-text search nội dung","Phiên bản tài liệu","Bắt buộc đọc + xác nhận","Khóa học nội bộ + quiz","Kết quả học tập → hồ sơ NV"],
+      "published_events": [],
+      "subscribed_events": ["employee.hired"]
+    },
+
+    "ceo_dashboard": {
+      "name": "CEO Dashboard",
+      "status": "phase_3",
+      "layers": {
+        "layer_1_pulse": {
+          "description": "Real-time – cập nhật liên tục",
+          "metrics": ["Doanh thu hôm nay","Tồn quỹ hiện tại","Xe đang hoạt động","Nhân sự vắng mặt hôm nay"]
+        },
+        "layer_2_scorecard": {
+          "description": "Thẻ điểm theo module",
+          "modules": ["finance_accounting","operations_vehicle","hr","business_cskh","inventory"]
+        },
+        "layer_3_alerts": {
+          "urgent": ["Khoản vay đến hạn < 3 ngày","Xe chạy giấy tờ hết hạn","Tồn quỹ dưới ngưỡng an toàn"],
+          "attention": ["Tuyến có lấp đầy giảm liên tiếp","HĐ lao động sắp hết hạn","Ticket quá SLA"],
+          "pending_approval": ["Đề nghị TT vượt hạn mức","Đề xuất mua sắm","Quyết định kỷ luật"]
+        },
+        "layer_4_ai_insight": {
+          "description": "Hệ thống tự phân tích dữ liệu đa module, sinh ra nhận xét và gợi ý hành động",
+          "comparison_bases": ["Kỳ trước","Cùng kỳ năm ngoái","Kế hoạch","Mẫu bất thường"],
+          "example_insights": [
+            "Tuyến HCM–ĐL lấp đầy 94% T7-CN nhưng 58% T2-T6 → gợi ý tăng chuyến cuối tuần",
+            "Xe XXX chi bảo dưỡng gấp 2.3x trung bình → cân nhắc thanh lý",
+            "Dòng tiền tháng tới nguy cơ âm → thu hồi công nợ hoặc chuẩn bị tín dụng",
+            "Tỷ lệ nghỉ việc tài xế tăng 3 tháng liên tiếp → rà soát chính sách lương"
+          ]
+        },
+        "layer_5_kpi_suggestions": {
+          "description": "Gợi ý KPI và đặt câu hỏi gợi mở dựa trên dữ liệu. Không tự ra chính sách.",
+          "trigger": "Sau 3–6 tháng có đủ data"
+        }
+      },
+      "auto_reports": [
+        { "name": "Tóm tắt ngày",   "schedule": "08:00 hàng ngày",     "channels": ["zalo","app"] },
+        { "name": "Tổng kết tuần",  "schedule": "Thứ 2 hàng tuần",     "channels": ["email","app"] },
+        { "name": "Báo cáo tháng",  "schedule": "Ngày 2 hàng tháng",   "channels": ["email","pdf"] }
+      ]
+    }
+  },
+
+  "database": {
+    "total_tables": 52,
+    "core_shared": 10,
+    "by_module": {
+      "hrm": 10,
+      "attendance_payroll": 7,
+      "shift": 3,
+      "vehicle": 7,
+      "trip_dispatch": 3,
+      "business": 7,
+      "freight": 2,
+      "charter": 2,
+      "agent": 3,
+      "accounting": 7,
+      "inventory": 5,
+      "knowledge": 2
+    },
+    "ai_readiness_checklist": [
+      "Mọi entity có: id (UUID), org_id, created_at, updated_at",
+      "Mọi thay đổi ghi vào audit_logs",
+      "Mọi business event publish vào event_log",
+      "Mỗi module implement ModuleContextProvider",
+      "Decimal(15,2) cho tiền – không dùng FLOAT",
+      "TIMESTAMPTZ cho mọi datetime – không dùng TIMESTAMP",
+      "Soft delete: deleted_at TIMESTAMPTZ",
+      "Full-text search: TSVECTOR + GIN index trên entity chính",
+      "JSONB fields có schema được document rõ ràng",
+      "Indexes đầy đủ cho FK fields và các field hay filter"
+    ],
+    "key_relationships": {
+      "trip_crew_center": "VEHICLE + ROUTE + EMPLOYEE → TRIP → TRIP_CREW → ATTENDANCE (auto) + PAYROLL",
+      "order_revenue": "TICKET_ORDER / FREIGHT_ORDER → RECEIPT_VOUCHER + INVOICE_OUTBOUND + REFUND_REQUEST + CSKH_TICKET",
+      "payment_hub": "REFUND + MAINTENANCE + LOAN_SCHEDULE + STOCK + AGENT_COMMISSION → PAYMENT_VOUCHER → CASH_ACCOUNT + INVOICE_INBOUND",
+      "event_log_global": "Mọi thao tác ghi → EVENT_LOG → AI pipeline"
+    }
+  },
+
+  "module_interface_contract": {
+    "description": "Mọi module mới bắt buộc implement interface này",
+    "interface": "ToanERPModule",
+    "required_methods": [
+      "name: string",
+      "version: string",
+      "dependencies: string[]",
+      "onInit(): Promise<void>",
+      "onModuleReady(): Promise<void>",
+      "getPublishedEvents(): string[]",
+      "getSubscribedEvents(): EventHandler[]",
+      "getContextProvider(): ModuleContextProvider",
+      "getPermissions(): Permission[]",
+      "getRoutes(): RouteDefinition[]"
+    ]
+  },
+
+  "database_migration_order": [
+    "001_create_organizations",
+    "002_create_roles",
+    "003_create_users",
+    "004_create_refresh_tokens",
+    "005_create_audit_logs",
+    "006_create_event_log",
+    "007_create_custom_fields",
+    "008_create_notifications",
+    "009_create_file_registry",
+    "010_create_departments",
+    "011_create_employees",
+    "012_create_driver_details",
+    "013_create_employee_history",
+    "014_create_document_templates",
+    "015_create_documents_issued",
+    "016_create_labor_contracts",
+    "017_create_leave_policies",
+    "018_create_leave_balances",
+    "019_create_leave_requests",
+    "020_create_shift_definitions",
+    "021_create_shift_assignments",
+    "022_create_shift_handovers",
+    "023_create_attendance",
+    "024_create_payroll_periods",
+    "025_create_payroll_records",
+    "026_create_advance_salary"
+  ],
+
+  "seed_data": {
+    "departments": [
+      "BGD – Ban Giám Đốc",
+      "KD – Phòng Kinh Doanh",
+      "KT – Phòng Kế Toán",
+      "VT – Phòng Vận Tải",
+      "HCNS – Hành Chính Nhân Sự",
+      "CSKH – Tổng Đài CSKH",
+      "LAIXE – Đội Tài Xế",
+      "PHUXE – Đội Phụ Xe"
+    ],
+    "offices_stations": [
+      { "code": "5901", "name": "An Sương" },
+      { "code": "5902", "name": "Thủ Đức" },
+      { "code": "5903", "name": "Ngã Tư Ga" },
+      { "code": "5904", "name": "Tân Bình" },
+      { "code": "6101", "name": "Bình Dương" },
+      { "code": "4901", "name": "Đà Lạt" },
+      { "code": "4702", "name": "Hoà Thắng" },
+      { "code": "4703", "name": "Hoà Đông" },
+      { "code": "4704", "name": "Hai Bà Trưng" },
+      { "code": "4705", "name": "Đạt Lý" },
+      { "code": "4706", "name": "Cư Kuin" },
+      { "code": "5001", "name": "CTY" },
+      { "code": "5000", "name": "TCTY" },
+      { "code": "5905", "name": "BXMĐ" }
+    ]
+  },
+
+  "roadmap": {
+    "phase_0": {
+      "name": "Nền Móng",
+      "duration": "Tháng 1–2",
+      "deliverables": ["Auth + RBAC","Dynamic Schema","Event Bus","API Gateway","CI/CD pipeline","Docker setup"]
+    },
+    "phase_1": {
+      "name": "Core Ops",
+      "duration": "Tháng 3–6",
+      "deliverables": ["HRM + Văn bản","Chấm công + Ca + Lương","Kế toán nội bộ","PWA mobile","Migrations 001–026"]
+    },
+    "phase_2": {
+      "name": "Business",
+      "duration": "Tháng 7–9",
+      "deliverables": ["Kinh doanh + CSKH","Hàng hóa","Đại lý","Phương tiện","Kho","Tài chính","GraphQL + Webhook"]
+    },
+    "phase_3": {
+      "name": "Intelligence",
+      "duration": "Tháng 10–12",
+      "deliverables": ["CEO Dashboard","AI Copilot (LLM API)","Báo cáo GTVT","Tích hợp API ngoài đầy đủ","Report Builder"]
+    },
+    "phase_4": {
+      "name": "Prediction",
+      "duration": "Năm 2",
+      "deliverables": ["ML Pipeline","Dự báo lấp đầy","Dự báo bảo dưỡng","Dự báo dòng tiền","Phát hiện bất thường"]
+    },
+    "phase_5": {
+      "name": "Ecosystem",
+      "duration": "Năm 3+",
+      "deliverables": ["Microservices tách dần","Public API cho đối tác","API Marketplace"]
+    }
+  },
+
+  "operational_problems_solved": [
+    { "problem": "NV nhập thu/chi tự do – mỗi người viết một kiểu",                         "solution": "Dropdown danh mục chuẩn hóa 2 tầng" },
+    { "problem": "Kế toán tổng hợp cuối tháng tốn nhiều giờ",                               "solution": "Báo cáo real-time khi phiếu duyệt" },
+    { "problem": "Hoàn vé qua nhóm Zalo – sót, trôi tin nhắn",                              "solution": "Ticket hoàn vé trong hệ thống có trạng thái + SLA" },
+    { "problem": "Chuyển tiền nhầm STK ngân hàng",                                          "solution": "Xác minh tên CTK tự động qua API Napas 247" },
+    { "problem": "Xuất hóa đơn sai tên/địa chỉ do truyền miệng",                            "solution": "API Tổng cục Thuế tra MST + xác nhận 2 bước trước khi xuất" },
+    { "problem": "CSKH không biết đã xuất HĐ chưa, link ở đâu",                             "solution": "HĐ gắn trực tiếp vào đơn hàng – ai có quyền đều tra được ngay" },
+    { "problem": "Chi phí nhỏ tức thời bị tắc vì chờ KT duyệt",                            "solution": "Phân tầng chi: Tier 1 tự động duyệt, Tier 2 duyệt nhanh 15 phút" },
+    { "problem": "Hóa đơn đầu vào qua email – sót, không có trạng thái",                    "solution": "Inbox hóa đơn tập trung + vòng đời rõ ràng" },
+    { "problem": "Hóa đơn NCC khác giá thực tế không phát hiện kịp",                        "solution": "Đối chiếu 3 chiều tự động – lệch thì cảnh báo, chưa hạch toán" },
+    { "problem": "Xe bán biển số giữ lại – lịch sử bị lẫn lộn",                             "solution": "Key chính là số khung/máy – biển số chỉ là key phụ" },
+    { "problem": "Giấy tờ xe hết hạn không biết kịp",                                       "solution": "Cảnh báo đa mức theo loại tài liệu, dashboard pháp lý tổng hợp" },
+    { "problem": "Thay phụ tùng quá sớm/quá trễ không kiểm soát",                           "solution": "Cảnh báo lệch định ngạch 2 chiều (sớm và trễ)" },
+    { "problem": "Mất thông tin khi bàn giao ca CSKH",                                      "solution": "SHIFT_HANDOVER ghi nhận open tickets, pending refunds, ghi chú" },
+    { "problem": "Không biết tuyến nào lãi/lỗ",                                             "solution": "Phân tích lợi nhuận theo tuyến trong module Tài chính" },
+    { "problem": "Đại lý bán vé không quản lý được công nợ và hoa hồng",                    "solution": "AGENT_COMMISSION + AGENT_DEBT tự động theo đơn hàng" },
+    { "problem": "Không theo dõi được dòng tiền tương lai",                                 "solution": "Dự báo 30 ngày: công nợ + lịch chi cố định + lịch trả nợ" },
+    { "problem": "Lương tài xế tính phức tạp, dễ sai, mất thời gian",                       "solution": "Công thức tự động theo chuyến + role + ca – lưu calculation_detail JSONB để audit" }
+  ]
+}
