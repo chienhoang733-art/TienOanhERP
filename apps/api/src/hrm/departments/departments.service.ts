@@ -1,56 +1,36 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-
-export interface Department {
-  id: number;
-  name: string;
-  managerId?: number;
-}
+import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class DepartmentsService {
-  private departments: Department[] = [
-    { id: 1, name: 'Human Resources', managerId: 101 },
-    { id: 2, name: 'Engineering', managerId: 102 },
-    { id: 3, name: 'Sales', managerId: 103 },
-  ];
+  constructor(private prisma: PrismaService) {}
 
   findAll() {
-    return this.departments;
+    return this.prisma.department.findMany({ include: { employees: true } });
   }
 
-  findOne(id: number) {
-    const dept = this.departments.find((d) => d.id === id);
+  async findOne(id: number) {
+    const dept = await this.prisma.department.findUnique({
+      where: { id },
+      include: { employees: true },
+    });
     if (!dept) throw new NotFoundException(`Department #${id} not found`);
     return dept;
   }
 
-  create(data: Omit<Department, 'id'>) {
-    const newDept = {
-      id:
-        this.departments.length > 0
-          ? Math.max(...this.departments.map((d) => d.id)) + 1
-          : 1,
-      ...data,
-    };
-    this.departments.push(newDept);
-    return newDept;
+  create(data: Prisma.DepartmentCreateInput) {
+    return this.prisma.department.create({ data });
   }
 
-  update(id: number, data: Partial<Department>) {
-    const deptIndex = this.departments.findIndex((d) => d.id === id);
-    if (deptIndex === -1)
-      throw new NotFoundException(`Department #${id} not found`);
-    const updated = { ...this.departments[deptIndex], ...data };
-    this.departments[deptIndex] = updated;
-    return updated;
+  update(id: number, data: Prisma.DepartmentUpdateInput) {
+    return this.prisma.department.update({
+      where: { id },
+      data,
+    });
   }
 
   remove(id: number) {
-    const deptIndex = this.departments.findIndex((d) => d.id === id);
-    if (deptIndex === -1)
-      throw new NotFoundException(`Department #${id} not found`);
-    const removed = this.departments[deptIndex];
-    this.departments.splice(deptIndex, 1);
-    return removed;
+    return this.prisma.department.delete({ where: { id } });
   }
 }

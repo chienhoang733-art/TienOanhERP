@@ -2,17 +2,45 @@ import { DepartmentsService } from './departments.service';
 export declare class DepartmentsController {
     private readonly departmentsService;
     constructor(departmentsService: DepartmentsService);
-    create(createData: any): {
-        name: string;
-        managerId?: number | undefined;
-        id: number;
-    };
-    findAll(): import("./departments.service").Department[];
-    findOne(id: string): import("./departments.service").Department;
-    update(id: string, updateData: any): {
+    create(createData: any): import(".prisma/client").Prisma.Prisma__DepartmentClient<{
         id: number;
         name: string;
-        managerId?: number;
-    };
-    remove(id: string): import("./departments.service").Department;
+        managerId: number | null;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs>;
+    findAll(): import(".prisma/client").Prisma.PrismaPromise<({
+        employees: {
+            id: number;
+            fullName: string;
+            email: string;
+            position: string;
+            departmentId: number;
+        }[];
+    } & {
+        id: number;
+        name: string;
+        managerId: number | null;
+    })[]>;
+    findOne(id: string): Promise<{
+        employees: {
+            id: number;
+            fullName: string;
+            email: string;
+            position: string;
+            departmentId: number;
+        }[];
+    } & {
+        id: number;
+        name: string;
+        managerId: number | null;
+    }>;
+    update(id: string, updateData: any): import(".prisma/client").Prisma.Prisma__DepartmentClient<{
+        id: number;
+        name: string;
+        managerId: number | null;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs>;
+    remove(id: string): import(".prisma/client").Prisma.Prisma__DepartmentClient<{
+        id: number;
+        name: string;
+        managerId: number | null;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs>;
 }

@@ -1,21 +1,47 @@
-export interface Department {
-    id: number;
-    name: string;
-    managerId?: number;
-}
+import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 export declare class DepartmentsService {
-    private departments;
-    findAll(): Department[];
-    findOne(id: number): Department;
-    create(data: Omit<Department, 'id'>): {
-        name: string;
-        managerId?: number | undefined;
+    private prisma;
+    constructor(prisma: PrismaService);
+    findAll(): Prisma.PrismaPromise<({
+        employees: {
+            id: number;
+            fullName: string;
+            email: string;
+            position: string;
+            departmentId: number;
+        }[];
+    } & {
         id: number;
-    };
-    update(id: number, data: Partial<Department>): {
+        name: string;
+        managerId: number | null;
+    })[]>;
+    findOne(id: number): Promise<{
+        employees: {
+            id: number;
+            fullName: string;
+            email: string;
+            position: string;
+            departmentId: number;
+        }[];
+    } & {
         id: number;
         name: string;
-        managerId?: number;
-    };
-    remove(id: number): Department;
+        managerId: number | null;
+    }>;
+    create(data: Prisma.DepartmentCreateInput): Prisma.Prisma__DepartmentClient<{
+        id: number;
+        name: string;
+        managerId: number | null;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs>;
+    update(id: number, data: Prisma.DepartmentUpdateInput): Prisma.Prisma__DepartmentClient<{
+        id: number;
+        name: string;
+        managerId: number | null;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs>;
+    remove(id: number): Prisma.Prisma__DepartmentClient<{
+        id: number;
+        name: string;
+        managerId: number | null;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs>;
 }

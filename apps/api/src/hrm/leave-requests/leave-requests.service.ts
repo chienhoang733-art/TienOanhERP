@@ -1,74 +1,47 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-
-export interface LeaveRequest {
-  id: number;
-  employeeId: number;
-  startDate: string;
-  endDate: string;
-  reason: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-}
+import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class LeaveRequestsService {
-  private leaveRequests: LeaveRequest[] = [
-    {
-      id: 1,
-      employeeId: 2,
-      startDate: '2026-03-20',
-      endDate: '2026-03-21',
-      reason: 'Personal trip',
-      status: 'APPROVED',
-    },
-    {
-      id: 2,
-      employeeId: 3,
-      startDate: '2026-04-01',
-      endDate: '2026-04-05',
-      reason: 'Sick leave',
-      status: 'PENDING',
-    },
-  ];
+  constructor(private prisma: PrismaService) {}
 
   findAll() {
-    return this.leaveRequests;
+    return this.prisma.leaveRequest.findMany({ include: { employee: true } });
   }
 
-  findOne(id: number) {
-    const leaveRequest = this.leaveRequests.find((l) => l.id === id);
+  async findOne(id: number) {
+    const leaveRequest = await this.prisma.leaveRequest.findUnique({
+      where: { id },
+      include: { employee: true },
+    });
     if (!leaveRequest)
       throw new NotFoundException(`LeaveRequest #${id} not found`);
     return leaveRequest;
   }
 
-  create(data: Omit<LeaveRequest, 'id' | 'status'>) {
-    const newRequest: LeaveRequest = {
-      id:
-        this.leaveRequests.length > 0
-          ? Math.max(...this.leaveRequests.map((l) => l.id)) + 1
-          : 1,
-      status: 'PENDING',
-      ...data,
-    };
-    this.leaveRequests.push(newRequest);
-    return newRequest;
+  create(data: Omit<Prisma.LeaveRequestUncheckedCreateInput, 'startDate' | 'endDate'> & { startDate: string, endDate: string }) {
+    return this.prisma.leaveRequest.create({ 
+      data: {
+        ...data,
+        startDate: new Date(data.startDate),
+        endDate: new Date(data.endDate)
+      } 
+    });
   }
 
-  update(id: number, data: Partial<LeaveRequest>) {
-    const index = this.leaveRequests.findIndex((l) => l.id === id);
-    if (index === -1)
-      throw new NotFoundException(`LeaveRequest #${id} not found`);
-    const updated = { ...this.leaveRequests[index], ...data };
-    this.leaveRequests[index] = updated;
-    return updated;
+  update(id: number, data: Partial<Omit<Prisma.LeaveRequestUpdateInput, 'startDate' | 'endDate'> & { startDate: string, endDate: string }>) {
+    const updateData: any = { ...data };
+    if (data.startDate) updateData.startDate = new Date(data.startDate);
+    if (data.endDate) updateData.endDate = new Date(data.endDate);
+    
+    return this.prisma.leaveRequest.update({
+      where: { id },
+      data: updateData,
+    });
   }
 
   remove(id: number) {
-    const index = this.leaveRequests.findIndex((l) => l.id === id);
-    if (index === -1)
-      throw new NotFoundException(`LeaveRequest #${id} not found`);
-    const removed = this.leaveRequests[index];
-    this.leaveRequests.splice(index, 1);
-    return removed;
+    return this.prisma.leaveRequest.delete({ where: { id } });
   }
 }

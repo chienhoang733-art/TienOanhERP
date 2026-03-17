@@ -1,0 +1,38 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Department {
+  id        Int        @id @default(autoincrement())
+  name      String
+  managerId Int?
+  employees Employee[]
+}
+
+model Employee {
+  id           Int            @id @default(autoincrement())
+  fullName     String
+  email        String         @unique
+  position     String
+  departmentId Int
+  department   Department     @relation(fields: [departmentId], references: [id])
+  leaveRequests LeaveRequest[]
+}
+
+model LeaveRequest {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  startDate  DateTime
+  endDate    DateTime
+  reason     String
+  status     String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  employee   Employee @relation(fields: [employeeId], references: [id])
+}
