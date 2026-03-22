@@ -13,8 +13,8 @@ export declare class DepartmentsService {
         }[];
     } & {
         name: string;
-        managerId: number | null;
         id: number;
+        managerId: number | null;
     })[]>;
     findOne(id: number): Promise<{
         employees: {
@@ -26,22 +26,22 @@ export declare class DepartmentsService {
         }[];
     } & {
         name: string;
-        managerId: number | null;
         id: number;
+        managerId: number | null;
     }>;
     create(data: Prisma.DepartmentCreateInput): Prisma.Prisma__DepartmentClient<{
         name: string;
-        managerId: number | null;
         id: number;
+        managerId: number | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
     update(id: number, data: Prisma.DepartmentUpdateInput): Prisma.Prisma__DepartmentClient<{
         name: string;
-        managerId: number | null;
         id: number;
+        managerId: number | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
     remove(id: number): Prisma.Prisma__DepartmentClient<{
         name: string;
-        managerId: number | null;
         id: number;
+        managerId: number | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
 }

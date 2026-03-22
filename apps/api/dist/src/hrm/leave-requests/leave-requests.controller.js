@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LeaveRequestsController = void 0;
 const common_1 = require("@nestjs/common");
 const leave_requests_service_1 = require("./leave-requests.service");
+const permissions_decorator_1 = require("../../auth/decorators/permissions.decorator");
 let LeaveRequestsController = class LeaveRequestsController {
     leaveRequestsService;
     constructor(leaveRequestsService) {
@@ -39,6 +40,7 @@ let LeaveRequestsController = class LeaveRequestsController {
 exports.LeaveRequestsController = LeaveRequestsController;
 __decorate([
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.RequirePermissions)('hrm:write'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -46,12 +48,14 @@ __decorate([
 ], LeaveRequestsController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, permissions_decorator_1.RequirePermissions)('hrm:read'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], LeaveRequestsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id'),
+    (0, permissions_decorator_1.RequirePermissions)('hrm:read'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
@@ -59,6 +63,7 @@ __decorate([
 ], LeaveRequestsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
+    (0, permissions_decorator_1.RequirePermissions)('hrm:write'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -67,6 +72,7 @@ __decorate([
 ], LeaveRequestsController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
+    (0, permissions_decorator_1.RequirePermissions)('hrm:write'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),

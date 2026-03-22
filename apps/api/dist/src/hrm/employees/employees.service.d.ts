@@ -6,16 +6,16 @@ export declare class EmployeesService {
     findAll(): Prisma.PrismaPromise<({
         department: {
             name: string;
-            managerId: number | null;
             id: number;
+            managerId: number | null;
         };
         leaveRequests: {
             id: number;
+            employeeId: number;
             startDate: Date;
             endDate: Date;
             reason: string;
             status: string;
-            employeeId: number;
         }[];
     } & {
         id: number;
@@ -27,16 +27,16 @@ export declare class EmployeesService {
     findOne(id: number): Promise<{
         department: {
             name: string;
-            managerId: number | null;
             id: number;
+            managerId: number | null;
         };
         leaveRequests: {
             id: number;
+            employeeId: number;
             startDate: Date;
             endDate: Date;
             reason: string;
             status: string;
-            employeeId: number;
         }[];
     } & {
         id: number;
